@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List
+import re
 
 
 @dataclass
@@ -15,3 +16,13 @@ class Repository:
     name: str
     url: str
     plugins: List[Plugin]
+
+
+@dataclass
+class PluginConfig:
+    base_url: str
+    black_urls: str
+    file_regex: re.Pattern
+    subs_regex: re.Pattern
+    main_pages: Dict[str, str]
+    headers: Dict[str, str]

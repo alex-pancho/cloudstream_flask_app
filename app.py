@@ -15,6 +15,7 @@ def add_repo():
     result = repo_manager.add_repository(repo_url)
     return jsonify(result)
 
+
 @app.route('/api/plugins', methods=['GET'])
 def list_plugins():
     return jsonify(repo_manager.get_all_plugins())
