@@ -8,7 +8,7 @@ class Plugin:
     name: str
     version: int | None
     url: str | None
-    repo_name: str
+    description: str
 
 
 @dataclass

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Add Repository</h2>
+
+<div class="repo-form">
+    <input type="text" id="repoUrl" placeholder="https://github.com/...">
+    <button id="addRepoBtn">Add</button>
+</div>
+<p id="tips">ex.: https://github.com/CakesTwix/cloudstream-extensions-uk</p>
+
+<p id="status"></p>
+
+<div class="repo-list">
+    <h2>Plugins</h2>
+    <div id="plugins"></div>
+</div>
+
+<script type="module" src="/static/js/app.js"></script>
+
+{% endblock %}

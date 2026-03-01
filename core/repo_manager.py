@@ -1,6 +1,7 @@
 from typing import List
 from core.models import Repository, Plugin
 from core.repo_fetcher import RepoFetcher
+from core.database import db
 
 
 class RepoManager:
@@ -8,20 +9,46 @@ class RepoManager:
     def __init__(self, fetcher: RepoFetcher | None = None):
         self.fetcher = fetcher or RepoFetcher()
         self.repositories: List[Repository] = []
+        self._load_from_db()
 
-    # --- PUBLIC API ---
+    # ------------------------
+    # PUBLIC API
+    # ------------------------
 
     def add_repository(self, url: str) -> dict:
-        if "github.com" in url and "raw" not in url:
-            url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
-            url = url + "/refs/heads/master/repo.json"
+        url = self._normalize_github_url(url)
+
         try:
             repository = self._build_repository(url)
+
+            # Зберігаємо в БД
+            db.repositories.insert(
+                name=repository.name,
+                url=repository.url
+            )
+            db.commit()
+
             self.repositories.append(repository)
+
             return self._serialize_repository(repository)
 
         except Exception as e:
             return {"error": f"Failed to scan repo: {str(e)}"}
+
+    def delete_repository(self, repo_id: int) -> dict:
+        row = db.repositories(repo_id)
+        if not row:
+            return {"error": "Repository not found"}
+
+        db(db.repositories.id == repo_id).delete()
+        db.commit()
+
+        # Видаляємо з пам'яті
+        self.repositories = [
+            r for r in self.repositories if r.url != row.url
+        ]
+
+        return {"status": "deleted"}
 
     def get_all_plugins(self) -> List[dict]:
         return [
@@ -30,7 +57,40 @@ class RepoManager:
             for plugin in repo.plugins
         ]
 
-    # --- INTERNAL LOGIC ---
+    def list_repositories(self) -> List[dict]:
+        return [
+            {
+                "id": row.id,
+                "name": row.name,
+                "url": row.url
+            }
+            for row in db(db.repositories).select()
+        ]
+
+    # ------------------------
+    # INIT LOAD
+    # ------------------------
+
+    def _load_from_db(self):
+        rows = db(db.repositories).select()
+
+        for row in rows:
+            try:
+                repository = self._build_repository(row.url)
+                self.repositories.append(repository)
+            except:
+                continue  # not validate server
+
+    # ------------------------
+    # INTERNAL LOGIC
+    # ------------------------
+
+    def _normalize_github_url(self, url: str) -> str:
+        if "github.com" in url and "raw" not in url:
+            url = url.replace("github.com", "raw.githubusercontent.com") \
+                     .replace("/blob/", "/")
+            url = url + "/refs/heads/master/repo.json"
+        return url
 
     def _build_repository(self, url: str) -> Repository:
         manifest = self.fetcher.fetch_repo_manifest(url)
@@ -63,13 +123,15 @@ class RepoManager:
                         name=data.get("name", "Unknown"),
                         version=data.get("version"),
                         url=data.get("url"),
-                        repo_name=data.get("description", "Unknown"),
+                        description=data.get("description", "Unknown"),
                     )
                 )
 
         return plugins
 
-    # --- SERIALIZATION ---
+    # ------------------------
+    # SERIALIZATION
+    # ------------------------
 
     def _serialize_repository(self, repo: Repository) -> dict:
         return {
@@ -86,5 +148,5 @@ class RepoManager:
             "name": plugin.name,
             "version": plugin.version,
             "url": plugin.url,
-            "repo_name": plugin.repo_name
+            "description": plugin.description
         }
