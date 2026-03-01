@@ -118,11 +118,12 @@ class RepoManager:
             plugin_dicts = self.fetcher.fetch_plugin_list(list_url)
 
             for data in plugin_dicts:
+                cs3_url = data.get("url")
                 plugins.append(
                     Plugin(
                         name=data.get("name", "Unknown"),
                         version=data.get("version"),
-                        url=data.get("url"),
+                        url=self._convert_cs3_to_source(cs3_url) or cs3_url,
                         description=data.get("description", "Unknown"),
                     )
                 )
@@ -150,3 +151,39 @@ class RepoManager:
             "url": plugin.url,
             "description": plugin.description
         }
+    
+    def _convert_cs3_to_source(self, cs3_url: str) -> str | None:
+        """
+        Перетворює .cs3 URL в посилання на Kotlin source
+        Працює для Codeberg та GitHub
+        """
+
+        if not cs3_url.endswith(".cs3"):
+            return None
+
+        # Plugin name
+        plugin_name = cs3_url.split("/")[-1].replace(".cs3", "")
+
+        if "codeberg.org" in cs3_url:
+            base = cs3_url.split("/raw/")[0]
+
+            return (
+                f"{base}/src/branch/master/"
+                f"{plugin_name}/src/main/kotlin/com/lagradost/"
+                f"{plugin_name}.kt"
+            )
+
+        if "raw.githubusercontent.com" in cs3_url:
+            parts = cs3_url.split("/")
+            # raw.githubusercontent.com/user/repo/branch/builds/file.cs3
+            user = parts[3]
+            repo = parts[4]
+            branch = parts[5]
+
+            return (
+                f"https://github.com/{user}/{repo}/blob/{branch}/"
+                f"{plugin_name}/src/main/kotlin/com/lagradost/"
+                f"{plugin_name}.kt"
+            )
+
+        return None
