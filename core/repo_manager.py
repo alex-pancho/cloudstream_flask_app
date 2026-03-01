@@ -1,7 +1,7 @@
 from typing import List
 from core.models import Repository, Plugin
 from core.repo_fetcher import RepoFetcher
-from core.database import db
+from core.database import get_db
 
 
 class RepoManager:
@@ -20,7 +20,7 @@ class RepoManager:
 
         try:
             repository = self._build_repository(url)
-
+            db = get_db()
             # Зберігаємо в БД
             db.repositories.insert(
                 name=repository.name,
@@ -36,6 +36,7 @@ class RepoManager:
             return {"error": f"Failed to scan repo: {str(e)}"}
 
     def delete_repository(self, repo_id: int) -> dict:
+        db = get_db()
         row = db.repositories(repo_id)
         if not row:
             return {"error": "Repository not found"}
@@ -58,6 +59,7 @@ class RepoManager:
         ]
 
     def list_repositories(self) -> List[dict]:
+        db = get_db()
         return [
             {
                 "id": row.id,
@@ -72,6 +74,7 @@ class RepoManager:
     # ------------------------
 
     def _load_from_db(self):
+        db = get_db()
         rows = db(db.repositories).select()
 
         for row in rows:
@@ -121,10 +124,12 @@ class RepoManager:
                 cs3_url = data.get("url")
                 plugins.append(
                     Plugin(
+                        repository_id=0,
                         name=data.get("name", "Unknown"),
                         version=data.get("version"),
-                        url=self._convert_cs3_to_source(cs3_url) or cs3_url,
                         description=data.get("description", "Unknown"),
+                        kt_url=self._convert_cs3_to_source(cs3_url) or cs3_url,
+                        base_url=data.get("baseUrl")
                     )
                 )
 
@@ -148,7 +153,7 @@ class RepoManager:
         return {
             "name": plugin.name,
             "version": plugin.version,
-            "url": plugin.url,
+            "url": plugin.kt_url,
             "description": plugin.description
         }
     
