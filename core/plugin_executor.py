@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urljoin
 from typing import List, Optional
 
 import httpx
@@ -110,37 +111,60 @@ class PluginExecutor:
 
         return results
     
-    def get_first_movies(self, plugin):
+    def get_first_movies(self, limit: int = 10):
         """
-        Here we can implement different strategies based on plugin capabilities:
-        1. Get main page URLs from config
-        2. Parse main page and extract movie links using file_regex
-        3. Get first 10 movies and return them
+        Parse main page using lxml and plugin config.
+        Uses:
+        - main_pages if defined
+        - otherwise base_url
+        - file_regex to filter valid movie links
         """
 
         try:
-            base_url = plugin.url
-            response = httpx.get(base_url, timeout=10)
-            tree = html.fromstring(response.text)
+            urls_to_scan = []
 
-            links = tree.xpath("//a[@href]")
+            # 1 if main_pages defined — we scan them, otherwise — base_url
+            if self.config.main_pages:
+                urls_to_scan = list(self.config.main_pages.keys())
+            else:
+                urls_to_scan = [self.config.base_url]
+
             movies = []
 
-            for link in links[:10]:
-                title = link.text_content().strip()
-                href = link.get("href")
+            for url in urls_to_scan:
+                response = self.client.get(
+                    url,
+                    headers=self.config.headers or None,
+                    timeout=self.timeout
+                )
+                response.raise_for_status()
 
-                if title and href:
+                tree = html.fromstring(response.text)
+
+                # 2 Get all <a href="">
+                links = tree.xpath("//a[@href]/@href")
+
+                for link in links:
+                    absolute_url = urljoin(self.config.base_url, link)
+
+                    # 3 Filter by file_regex
+                    if self.config.file_regex:
+                        if not self.config.file_regex.search(absolute_url):
+                            continue
+
                     movies.append({
-                        "title": title,
-                        "url": href
+                        "title": absolute_url.split("/")[-1],
+                        "url": absolute_url
                     })
+
+                    if len(movies) >= limit:
+                        return movies
 
             return movies
 
         except Exception as e:
+            print(f"[PluginExecutor] Error in {self.config.name}: {e}")
             return []
-
 
 class PluginFactory:
 

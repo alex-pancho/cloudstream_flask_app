@@ -173,7 +173,7 @@ class RepoManager:
             base = cs3_url.split("/raw/")[0]
 
             return (
-                f"{base}/src/branch/master/"
+                f"{base}/raw/branch/master/"
                 f"{plugin_name}/src/main/kotlin/com/lagradost/"
                 f"{plugin_name}.kt"
             )
@@ -186,9 +186,9 @@ class RepoManager:
             branch = parts[5]
 
             return (
-                f"https://github.com/{user}/{repo}/blob/{branch}/"
+                f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/"
                 f"{plugin_name}/src/main/kotlin/com/lagradost/"
-                f"{plugin_name}.kt"
+                f"{plugin_name}.kt" 
             )
 
         return None

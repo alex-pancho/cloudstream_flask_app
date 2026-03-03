@@ -1,5 +1,7 @@
 import re
 from pathlib import Path
+
+import httpx
 from core.models import PluginConfig
 
 
@@ -22,12 +24,15 @@ class KotlinPluginLoader:
     HAS_MAIN_RE = re.compile(r'override var hasMainPage = (true|false)')
     SEQ_MAIN_RE = re.compile(r'override var sequentialMainPage = (true|false)')
 
+    def __init__(self, client: httpx.Client | None = None):
+        self.client = client or httpx.Client(timeout=10)
+
     def _safe(self, regex, content, default=None):
         match = regex.search(content)
         return match.group(1) if match else default
 
     def load(self, file_path: str) -> PluginConfig:
-        content = Path(file_path).read_text(encoding="utf-8")
+        content = self._read_source(file_path)
 
         base_url = self._safe(self.BASE_URL_RE, content)
         name = self._safe(self.NAME_RE, content)
@@ -63,3 +68,11 @@ class KotlinPluginLoader:
                 "User-Agent": "Mozilla/5.0",
             },
         )
+
+    def _read_source(self, path: str) -> str:
+        if path.startswith("http://") or path.startswith("https://"):
+            response = self.client.get(path)
+            response.raise_for_status()
+            return response.text
+        else:
+            return Path(path).read_text(encoding="utf-8")

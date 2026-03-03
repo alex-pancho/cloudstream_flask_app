@@ -49,8 +49,8 @@ def scan_plugins():
     plugins = repo_manager.get_all_plugins()
 
     for plugin in plugins:
-        executor: PluginExecutor = factory.create_executor(plugin["name"])
-        movies = executor.get_first_movies(plugin)
+        executor: PluginExecutor = factory.create_executor(plugin["url"])
+        movies = executor.get_first_movies()
         cache_service.save_movies(plugin["name"], movies)
 
     return jsonify(cache_service.get_all())
